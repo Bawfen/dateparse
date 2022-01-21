@@ -2014,7 +2014,7 @@ func newParser(dateStr string, loc *time.Location, opts ...ParserOption) *parser
 		stateTime:                  timeIgnore,
 		datestr:                    dateStr,
 		loc:                        loc,
-		preferMonthFirst:           true,
+		preferMonthFirst:           false,
 		retryAmbiguousDateWithSwap: false,
 	}
 	p.format = []byte(dateStr)
