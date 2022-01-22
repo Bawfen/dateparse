@@ -133,11 +133,11 @@ const (
 var (
 	// ErrAmbiguousMMDD for date formats such as 04/02/2014 the mm/dd vs dd/mm are
 	// ambiguous, so it is an error for strict parse rules.
-	ErrAmbiguousMMDD = fmt.Errorf("This date has ambiguous mm/dd vs dd/mm type format")
+	ErrAmbiguousMMDD = fmt.Errorf("this date has ambiguous mm/dd vs dd/mm type format")
 )
 
 func unknownErr(datestr string) error {
-	return fmt.Errorf("Could not find format for %q", datestr)
+	return fmt.Errorf("could not find format for %q", datestr)
 }
 
 // ParseAny parse an unknown date format, detect the layout.
@@ -359,6 +359,12 @@ iterRunes:
 							p.molen = i
 							p.setMonth()
 							p.dayi = i + 1
+						}
+					} else {
+						if p.daylen == 0 {
+							p.daylen = i
+							p.setDay()
+							p.moi = i + 1
 						}
 					}
 				}
@@ -648,6 +654,12 @@ iterRunes:
 						p.setDay()
 						p.yeari = i + 1
 					}
+				} else {
+					if p.molen == 0 {
+						p.molen = i - p.moi
+						p.setMonth()
+						p.yeari = i + 1
+					}
 				}
 			}
 
@@ -711,7 +723,7 @@ iterRunes:
 			// 2013年07月18日 星期四 10:27 上午
 			if r == ' ' {
 				p.stateDate = dateDigitChineseYearWs
-				break
+
 			}
 		case dateDigitDot:
 			// This is the 2nd period
@@ -1449,7 +1461,7 @@ iterRunes:
 					p.extra = i - 1
 					p.stateTime = timeWsOffset
 					p.trimExtra()
-					break
+
 				default:
 					switch {
 					case unicode.IsDigit(r):
@@ -1596,7 +1608,7 @@ iterRunes:
 					// 00:00:00.000 +0300 +0300
 					p.extra = i - 1
 					p.trimExtra()
-					break
+
 				default:
 					if unicode.IsLetter(r) {
 						// 00:07:31.945167 +0000 UTC
@@ -1611,7 +1623,6 @@ iterRunes:
 				if r == '=' && datestr[i-1] == 'm' {
 					p.extra = i - 2
 					p.trimExtra()
-					break
 				}
 
 			case timePeriodWsOffsetColon:
@@ -1982,7 +1993,6 @@ type parser struct {
 	msi                        int
 	mslen                      int
 	offseti                    int
-	offsetlen                  int
 	tzi                        int
 	tzlen                      int
 	t                          *time.Time
@@ -2015,7 +2025,7 @@ func newParser(dateStr string, loc *time.Location, opts ...ParserOption) *parser
 		datestr:                    dateStr,
 		loc:                        loc,
 		preferMonthFirst:           false,
-		retryAmbiguousDateWithSwap: false,
+		retryAmbiguousDateWithSwap: true,
 	}
 	p.format = []byte(dateStr)
 
@@ -2165,10 +2175,10 @@ func (p *parser) parse() (time.Time, error) {
 	}
 
 	if p.loc == nil {
-		// gou.Debugf("parse layout=%q input=%q   \ntx, err := time.Parse(%q, %q)", string(p.format), p.datestr, string(p.format), p.datestr)
+		// fmt.Printf("parse layout=%q input=%q   \ntx, err := time.Parse(%q, %q)", string(p.format), p.datestr, string(p.format), p.datestr)
 		return time.Parse(string(p.format), p.datestr)
 	}
-	//gou.Debugf("parse layout=%q input=%q   \ntx, err := time.ParseInLocation(%q, %q, %v)", string(p.format), p.datestr, string(p.format), p.datestr, p.loc)
+	// fmt.Printf("parse layout=%q input=%q   \ntx, err := time.ParseInLocation(%q, %q, %v)", string(p.format), p.datestr, string(p.format), p.datestr, p.loc)
 	return time.ParseInLocation(string(p.format), p.datestr, p.loc)
 }
 func isDay(alpha string) bool {

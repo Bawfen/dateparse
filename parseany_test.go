@@ -10,8 +10,7 @@ import (
 
 func TestOne(t *testing.T) {
 	time.Local = time.UTC
-	var ts time.Time
-	ts = MustParse("2020-07-20+08:00")
+	var ts time.Time = MustParse("2020-07-20+08:00")
 	assert.Equal(t, "2020-07-19 16:00:00 +0000 UTC", fmt.Sprintf("%v", ts.In(time.UTC)))
 }
 
@@ -173,7 +172,8 @@ var testInputs = []dateTest{
 	//  mm/dd/yyyy
 	{in: "03/31/2014", out: "2014-03-31 00:00:00 +0000 UTC"},
 	{in: "3/31/2014", out: "2014-03-31 00:00:00 +0000 UTC"},
-	{in: "3/5/2014", out: "2014-03-05 00:00:00 +0000 UTC"},
+	// dd/mm/yyyy
+	{in: "3/5/2014", out: "2014-05-03 00:00:00 +0000 UTC"},
 	//  dd/mm/yy
 	{in: "08/08/71", out: "1971-08-08 00:00:00 +0000 UTC"},
 	{in: "8/8/71", out: "1971-08-08 00:00:00 +0000 UTC"},
@@ -337,7 +337,7 @@ var testInputs = []dateTest{
 	//   yyyy:mm:dd hh:mm:ss+00:00
 	{in: "2012:08:03 18:31:59+00:00", out: "2012-08-03 18:31:59 +0000 UTC"},
 	//   dd:mm:yyyy hh:mm:ss+00:00
-	{in: "08:03:2012 18:31:59+00:00", out: "2012-08-03 18:31:59 +0000 UTC"},
+	{in: "08:03:2012 18:31:59+00:00", out: "2012-03-08 18:31:59 +0000 UTC"},
 	//   yyyy-mm-dd hh:mm:ss.000+00:00 PST
 	{in: "2012-08-03 18:31:59.000+00:00 PST", out: "2012-08-03 18:31:59 +0000 UTC", loc: "America/Los_Angeles"},
 	//   yyyy-mm-dd hh:mm:ss +00:00 TZ
@@ -464,6 +464,33 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, true, testDidPanic(`{"ts":"now"}`))
 
 	_, err = ParseAny("138421636711122233311111") // too many digits
+	assert.NotEqual(t, nil, err)
+
+	_, err = ParseAny("-1314")
+	assert.NotEqual(t, nil, err)
+
+	_, err = ParseAny("2014-13-13 08:20:13,787") // month 13 doesn't exist so error
+	assert.NotEqual(t, nil, err)
+}
+
+func TestMonth(t *testing.T) {
+
+	// Lets ensure we are operating on UTC
+	time.Local = time.UTC
+
+	th := dateTest{in: "04:02:2014 04:08:09", out: "2014-02-04 04:08:09 +0000 UTC"}
+	ts := MustParse(th.in)
+	got := fmt.Sprintf("%v", ts.In(time.UTC))
+	assert.Equal(t, th.out, got, "Expected %q but got %q from %q", th.out, got, th.in)
+	if th.out != got {
+		panic("whoops")
+	}
+
+	// some errors
+
+	assert.Equal(t, true, testDidPanic(`{"ts":"now"}`))
+
+	_, err := ParseAny("138421636711122233311111") // too many digits
 	assert.NotEqual(t, nil, err)
 
 	_, err = ParseAny("-1314")
@@ -726,10 +753,10 @@ func TestInLocation(t *testing.T) {
 }
 
 func TestPreferMonthFirst(t *testing.T) {
-	// default case is true
+	// default case is false
 	ts, err := ParseAny("04/02/2014 04:08:09 +0000 UTC")
 	assert.Equal(t, nil, err)
-	assert.Equal(t, "2014-04-02 04:08:09 +0000 UTC", fmt.Sprintf("%v", ts.In(time.UTC)))
+	assert.Equal(t, "2014-02-04 04:08:09 +0000 UTC", fmt.Sprintf("%v", ts.In(time.UTC)))
 
 	preferMonthFirstTrue := PreferMonthFirst(true)
 	ts, err = ParseAny("04/02/2014 04:08:09 +0000 UTC", preferMonthFirstTrue)
@@ -744,18 +771,18 @@ func TestPreferMonthFirst(t *testing.T) {
 }
 
 func TestRetryAmbiguousDateWithSwap(t *testing.T) {
-	// default is false
-	_, err := ParseAny("13/02/2014 04:08:09 +0000 UTC")
-	assert.NotEqual(t, nil, err)
+	// default is true
+	_, err := ParseAny("02/13/2014 04:08:09 +0000 UTC")
+	assert.Equal(t, nil, err)
 
 	// will fail error if the month preference cannot work due to the value being larger than 12
 	retryAmbiguousDateWithSwapFalse := RetryAmbiguousDateWithSwap(false)
-	_, err = ParseAny("13/02/2014 04:08:09 +0000 UTC", retryAmbiguousDateWithSwapFalse)
+	_, err = ParseAny("02/13/2014 04:08:09 +0000 UTC", retryAmbiguousDateWithSwapFalse)
 	assert.NotEqual(t, nil, err)
 
 	// will retry with the other month preference if this error is detected
 	retryAmbiguousDateWithSwapTrue := RetryAmbiguousDateWithSwap(true)
-	ts, err := ParseAny("13/02/2014 04:08:09 +0000 UTC", retryAmbiguousDateWithSwapTrue)
+	ts, err := ParseAny("02/13/2014 04:08:09 +0000 UTC", retryAmbiguousDateWithSwapTrue)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "2014-02-13 04:08:09 +0000 UTC", fmt.Sprintf("%v", ts.In(time.UTC)))
 }
